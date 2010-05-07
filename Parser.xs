@@ -45,7 +45,7 @@ CODE:
   num_headers = MAX_HEADERS;
  
   ret = phr_parse_response(buf_str, buf_len, &minor_version, &status, &msg, &msg_len, headers, &num_headers, 0);
-  if (ret < 0)
+  if (ret == -1)
     goto done;
   
   if (!SvROK(resref))

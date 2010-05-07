@@ -3,6 +3,7 @@ use strict;
 use warnings;
 our $VERSION = '0.01';
 
+use Carp;
 use base qw(Exporter);
 our %EXPORT_TAGS = (
     'all' => [ qw/parse parse_http_response/ ],
@@ -28,17 +29,26 @@ if ($ENV{PERL_HTTP_RESPONSE_PARSER_PP}) {
 sub parse {
     my $res = {};
     my $parsed = parse_http_response( $_[0], $res );
-    if ($parsed > 0) {
-        if ( defined $_[1] ) {
-            $res->{_content} = $_[1];
-        }
-        else {
-            $res->{_content} = substr( $_[0], $parsed ) || "";
-        }
-        bless $res->{_headers}, $HEADER_CLASS;
-        bless $res, $RESPONSE_CLASS;
-        return $res;
+    if ($parsed == -1) {
+        carp "invalid response";
+        return;
     }
+    if ($parsed == -2) {
+        carp "warning: successfully parsed. but HTTP header is maybe incomplete.";
+    } 
+    
+    if ( defined $_[1] ) {
+        $res->{_content} = $_[1];
+    }
+    elsif($parsed > 0) {
+        $res->{_content} = substr( $_[0], $parsed ) || "";
+    } else { # -2
+        $res->{_content} = "";
+    }
+
+    bless $res->{_headers}, $HEADER_CLASS;
+    bless $res, $RESPONSE_CLASS;
+    return $res;
 }
 
 

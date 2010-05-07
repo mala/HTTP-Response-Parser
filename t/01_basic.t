@@ -1,4 +1,6 @@
 use Test::More;
+use HTTP::Response;
+use HTTP::Response::Parser::PP ();
 use HTTP::Response::Parser qw(parse);
 
 use Data::Dumper;
@@ -56,6 +58,20 @@ hogehoge
  '_rc' => 200,
  '_msg' => 'OK'
 }
+----------
+HTTP/1.0 200 OK
+Content-Type: text/html
+----------
+{
+ '_content' => "",
+ '_protocol' => 'HTTP/1.0',
+ '_headers' => { "content-type" => "text/html"},
+ '_rc' => 200,
+ '_msg' => 'OK'
+}
+
+
+
 __END__
 
 while (@tests) {
