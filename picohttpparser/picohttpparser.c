@@ -108,9 +108,8 @@ static int parse_http_version(const char** _buf, const char* buf_end,
 }
 
 static int parse_headers(const char* buf, const char* _buf, const char* buf_end,
-			 struct phr_header* headers, size_t* num_headers)
+			 struct phr_header* headers, size_t* num_headers, size_t max_headers)
 {
-  size_t max_headers = *num_headers;
   for (*num_headers = 0; ; ++*num_headers) {
     CHECK_EOF();
     if (*buf == '\r') {
@@ -160,7 +159,10 @@ int phr_parse_request(const char* _buf, size_t len, const char** method,
 {
   const char * buf = _buf, * buf_end = buf + len;
   int r;
-  
+ 
+  size_t max = *num_headers;
+  *num_headers = 0;
+ 
   /* if last_len != 0, check if the request is complete (a fast countermeasure
      againt slowloris */
   if (last_len != 0) {
@@ -198,8 +200,8 @@ int phr_parse_request(const char* _buf, size_t len, const char** method,
   } else {
     return -1;
   }
-
-  return parse_headers(buf, _buf, buf_end, headers, num_headers);
+  
+  return parse_headers(buf, _buf, buf_end, headers, num_headers, max);
 }
 
 int phr_parse_response(const char* _buf, size_t len, int* minor_version,
@@ -209,7 +211,10 @@ int phr_parse_response(const char* _buf, size_t len, int* minor_version,
 {
   const char * buf = _buf, * buf_end = buf + len;
   int r;
-  
+ 
+  size_t max = *num_headers; 
+  *num_headers = 0;
+ 
   /* if last_len != 0, check if the response is complete (a fast countermeasure
      against slowloris */
   if (last_len != 0) {
@@ -217,7 +222,8 @@ int phr_parse_response(const char* _buf, size_t len, int* minor_version,
       return r;
     }
   }
-  
+  if (buf == buf_end){ return -1; }
+
   /* parse "HTTP/1.x" */
   if ((r = parse_http_version(&buf, buf_end, minor_version)) != 0) {
     return r;
@@ -236,8 +242,8 @@ int phr_parse_response(const char* _buf, size_t len, int* minor_version,
   }
   /* get message */
   ADVANCE_EOL(*msg, *msg_len);
-
-  return parse_headers(buf, _buf, buf_end, headers, num_headers);
+ 
+  return parse_headers(buf, _buf, buf_end, headers, num_headers, max);
 }
 
 #undef CHECK_EOF
