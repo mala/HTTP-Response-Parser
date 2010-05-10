@@ -43,8 +43,8 @@ CODE:
     buf_str = SvPV(buf, buf_len);
   }
   num_headers = MAX_HEADERS;
- 
   ret = phr_parse_response(buf_str, buf_len, &minor_version, &status, &msg, &msg_len, headers, &num_headers, 0);
+
   if (ret == -1)
     goto done;
   
@@ -55,11 +55,17 @@ CODE:
   if (SvTYPE(res) != SVt_PVHV)
     Perl_croak(aTHX_ "second param to parse_http_response should be a hashref");
   
-  hv_store(res, "_msg", sizeof("_msg") - 1, newSVpvn(msg, msg_len), 0);
-  hv_store(res, "_rc", sizeof("_rc") - 1, newSViv(status), 0);
+  // status line parsed
   sprintf(tmp, "HTTP/1.%d", minor_version);
   hv_store(res, "_protocol", sizeof("_protocol") - 1, newSVpv(tmp, 0), 0);
-
+  hv_store(res, "_rc", sizeof("_rc") - 1, newSViv(status), 0);
+  /*  printf("status: %d\n", ret);
+    printf("msg_len: %d\n", msg_len);
+    printf("num_headers: %d\n", num_headers);
+  */
+  hv_store(res, "_msg", sizeof("_msg") - 1, newSVpvn(msg, msg_len), 0);
+  // printf("hoge4\n");
+  
   last_value = NULL;
 
   HV* h_headers = newHV();
@@ -77,7 +83,11 @@ CODE:
 	size_t n;
 	// too large field name
         if (sizeof(tmp) < headers[i].name_len) {
-      	  hv_clear(res);
+          /*
+          printf("name_len: %d\n", headers[i].name_len);
+          printf("name: %s\n", headers[i].name);
+          */
+      	  // hv_clear(res);
           ret = -1;
           goto done;
         }

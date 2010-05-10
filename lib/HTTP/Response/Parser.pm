@@ -1,10 +1,12 @@
 package HTTP::Response::Parser;
+
 use strict;
 use warnings;
 our $VERSION = '0.01';
 
 use Carp;
 use base qw(Exporter);
+
 our %EXPORT_TAGS = (
     'all' => [ qw/parse parse_http_response/ ],
 );
@@ -14,13 +16,12 @@ our @EXPORT = ();
 our $HEADER_CLASS = 'HTTP::Headers';
 our $RESPONSE_CLASS = 'HTTP::Response';
 
-if ($ENV{PERL_HTTP_RESPONSE_PARSER_PP}) {
-    eval 'use HTTP::Response::Parser::PP;';
-} else {
-    eval 'use HTTP::Response::Parser::XS;';
-    if ($@) {
-        warn $@;
-        eval 'use HTTP::Response::Parser::PP;'
+{
+    if (!$ENV{PERL_HTTP_RESPONSE_PARSER_PP} && eval { require HTTP::Response::Parser::XS; 1 }) {
+        *parse_http_response = \&HTTP::Response::Parser::XS::parse_http_response;
+    } else {
+        require HTTP::Response::Parser::PP;
+        *parse_http_response = \&HTTP::Response::Parser::PP::parse_http_response;
     }
 }
 
@@ -62,17 +63,46 @@ HTTP::Response::Parser - create HTTP::Response fast way
 
 =head1 SYNOPSIS
 
-  use HTTP::Response::Parser;
+  use HTTP::Response::Parser qw(parse parse_http_response);
+
+  $res = HTTP::Response::Parser::parse("HTTP/1.1 200 OK\r\n\r\n", "Content body");
+  if ($res) {
+      $res->isa('HTTP::Response'); # true
+  } else {
+      # something wrong
+  }
+  
+  $res = {};
+  # parse header only, return parsed bytes length.
+  $parsed = parse_http_response("HTTP/1.1 200 OK\r\n\r\n", $res); # return n bytes
+  if ($parsed == -1) {
+      # invalid response, maybe this is not HTTP Response
+  } elsif ($parsed == -2) {
+      # parsed correctly, but incomplete response. 
+  } else {
+      $res->{_rc} # 200
+      $res->{_protocol} # HTTP/1.1
+      $res->{_msg} # OK
+      $res->{_headers} # just a HASH
+      $res->isa('HTTP::Response') # false
+  }
+
 
 =head1 DESCRIPTION
 
-HTTP::Response::Parser is
+HTTP::Response::Parser is HTTP response parser.
+
+=head1 EXPORTS
+
+Nothing by default.
 
 =head1 AUTHOR
 
 mala E<lt>cpan@ma.laE<gt>
 
 =head1 SEE ALSO
+
+L<HTTP::Parser>, L<HTTP::Response>, L<HTTP::Parser::XS>
 
 =head1 LICENSE
 

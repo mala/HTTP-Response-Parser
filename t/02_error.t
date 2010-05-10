@@ -1,7 +1,7 @@
 use Test::More;
 
 use HTTP::Response;
-use HTTP::Response::Parser qw(parse);
+use HTTP::Response::Parser qw(parse_http_response);
 
 require HTTP::Response::Parser::PP;
 # require HTTP::Response::Parser::XS;
@@ -15,29 +15,14 @@ warn $XS;
 use Data::Dumper;
 
 my $tests = <<'__HEADERS';
-HTTP/1.0 200 OK
+HOGE
 
 ----------
-{
- '_content' => '',
- '_protocol' => 'HTTP/1.0',
- '_headers' => {},
- '_rc' => 200,
- '_msg' => 'OK'
-}
+-1
 ----------
 HTTP/1.0 200 OK
-Content-Type: text/html
-
-hogehoge
 ----------
-{
- '_content' => "hogehoge\n",
- '_protocol' => 'HTTP/1.0',
- '_headers' => { "content-type" => "text/html"},
- '_rc' => 200,
- '_msg' => 'OK'
-}
+-2
 ----------
 HTTP/1.0 200 OK
 Content-Type: text/html
@@ -46,13 +31,7 @@ X-Test: 2
 
 hogehoge
 ----------
-{
- '_content' => "hogehoge\n",
- '_protocol' => 'HTTP/1.0',
- '_headers' => { "content-type" => "text/html", "x-test" => [1,2]},
- '_rc' => 200,
- '_msg' => 'OK'
-}
+61
 ----------
 HTTP/1.0 200 OK
 Content-Type: text/html
@@ -61,30 +40,18 @@ X-Test: 1
 
 hogehoge
 ----------
-{
- '_content' => "hogehoge\n",
- '_protocol' => 'HTTP/1.0',
- '_headers' => { "content-type" => "text/html", "x-test" => "1\n X-Test: 2"},
- '_rc' => 200,
- '_msg' => 'OK'
-}
+62
 ----------
 HTTP/1.0 200 OK
 Content-Type: text/html
 ----------
-{
- '_content' => "",
- '_protocol' => 'HTTP/1.0',
- '_headers' => { "content-type" => "text/html"},
- '_rc' => 200,
- '_msg' => 'OK'
-}
+-2
 __HEADERS
+
 
 my $backend;
 
 sub do_test {
-    warn $backend;
     my @tests = split '-'x10, $tests;
     my $i = 0;
     while (@tests) {
@@ -93,11 +60,10 @@ sub do_test {
         my $expect = shift @tests;
         $header =~ s/^\n//;
         last unless $expect;
-        my $res = parse($header);
+        my $res = {};
+        my $parsed = HTTP::Response::Parser::parse_http_response($header, $res);
         my $r   = eval($expect);
-        is_deeply( $res, $r, $backend . " " . $i);
-        isa_ok( $res,             'HTTP::Response' );
-        isa_ok( $res->{_headers}, 'HTTP::Headers' );
+        is( $parsed, $r, "$backend $i");
     }
 }
 
@@ -108,6 +74,7 @@ if ($XS) {
     *HTTP::Response::Parser::parse_http_response = *HTTP::Response::Parser::PP::parse_http_response;
     do_test();
 } else {
+    $backend = "PP test";
     do_test();
 }
 

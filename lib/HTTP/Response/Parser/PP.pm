@@ -18,10 +18,16 @@ sub parse_http_response($$) {
     my $len = length $str;
     
     my ($sl, $remain) = split /\r?\n/, $_[0], 2;
-    ($res->{'_protocol'}, $res->{'_rc'}, $res->{'_msg'}) = split(' ', $sl, 3);
-    my ($headers, $content) = split /\r?\n\r?\n/, $remain;
-    $res->{_headers} = _parse_header_field($remain);
+    my ($proto, $rc, $msg) = split(' ', $sl, 3);
+    return -1 unless $proto =~m{^HTTP/1.\d};
+    return -1 unless $rc =~m/^\d+$/;
+    
+    ($res->{'_protocol'}, $res->{'_rc'}, $res->{'_msg'}) = ($proto, $rc, $msg);
 
+    my ($headers, $content) = split /\r?\n\r?\n/, $remain, 2;
+    $res->{_headers} = _parse_header_field($headers);
+
+    return -2 unless ($remain =~/\r?\n\r?\n/ || $content);
     my $parsed = $len - (defined $content ? length $content : 0);
     return $parsed;
 }
