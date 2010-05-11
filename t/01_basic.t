@@ -10,7 +10,7 @@ my $XS = eval {
     1 
 };
 
-warn $XS;
+note "Skip XS test";
 
 use Data::Dumper;
 
@@ -84,7 +84,7 @@ __HEADERS
 my $backend;
 
 sub do_test {
-    warn $backend;
+    note $backend;
     my @tests = split '-'x10, $tests;
     my $i = 0;
     while (@tests) {

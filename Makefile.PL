@@ -20,6 +20,9 @@ tests 't/*.t';
 # author_tests 'xt';
 
 build_requires 'Test::More';
+
+repository 'git://github.com/mala/HTTP-Response-Parser.git';
+
 use_test_base;
 auto_include;
 WriteAll;

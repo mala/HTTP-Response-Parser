@@ -9,6 +9,7 @@ use HTTP::Response;
 use HTTP::Response::Parser qw(parse parse_http_response);
 
 my %header;
+use Data::Dumper;
 
 $header{large_header} =<<"END";
 HTTP/1.0 200 OK
