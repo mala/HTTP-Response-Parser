@@ -25,7 +25,10 @@
 #define ADVANCE_EOL(tok, toklen) do {	      \
     tok = buf;				      \
     for (; ; ++buf) {			      \
-      CHECK_EOF();			      \
+      if (buf == buf_end) {                   \
+        toklen = buf - tok;                   \
+        return -2;                            \
+      }			                      \
       if (*buf == '\r' || *buf == '\n') {     \
 	break;				      \
       }					      \
