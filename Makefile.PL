@@ -19,6 +19,7 @@ makemaker_args(
 tests 't/*.t';
 # author_tests 'xt';
 
+requires 'HTTP::Response';
 build_requires 'Test::More';
 
 repository 'git://github.com/mala/HTTP-Response-Parser.git';
