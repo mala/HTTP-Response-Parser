@@ -3,6 +3,10 @@ name 'HTTP-Response-Parser';
 all_from 'lib/HTTP/Response/Parser.pm';
 
 can_cc or die "This module requires a C compiler";
+
+test_requires 'Test::More';
+test_requires 'HTTP::Response';
+
 makemaker_args(
     OBJECT => '$(O_FILES)',
     clean => {
@@ -19,10 +23,6 @@ makemaker_args(
 tests 't/*.t';
 # author_tests 'xt';
 
-build_requires 'Test::More';
-
 repository 'git://github.com/mala/HTTP-Response-Parser.git';
 
-use_test_base;
-auto_include;
 WriteAll;
