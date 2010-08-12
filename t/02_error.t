@@ -10,7 +10,7 @@ my $XS = eval {
     1 
 };
 
-warn $XS;
+note "XS: ", $XS ? "enabled" : "disabled";
 
 use Data::Dumper;
 

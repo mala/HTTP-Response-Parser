@@ -81,6 +81,40 @@ Content-Type: text/html
  '_rc' => 200,
  '_msg' => 'OK'
 }
+----------
+HTTP/1.1 200 OK
+Content-Type: text/html
+----------
+{
+ '_content' => "",
+ '_protocol' => 'HTTP/1.1',
+ '_headers' => { "content-type" => "text/html"},
+ '_rc' => 200,
+ '_msg' => 'OK'
+}
+----------
+HTTP/1.1 404 Not Found
+Content-Type: text/html
+----------
+{
+ '_content' => "",
+ '_protocol' => 'HTTP/1.1',
+ '_headers' => { "content-type" => "text/html"},
+ '_rc' => 404,
+ '_msg' => 'Not Found'
+}
+----------
+HTTP/1.1 200 OK
+Content-Type: text/html
+FOO_BAR: 42
+----------
+{
+ '_content' => "",
+ '_protocol' => 'HTTP/1.1',
+ '_headers' => { "content-type" => "text/html", "foo-bar" => 42},
+ '_rc' => 200,
+ '_msg' => 'OK'
+}
 __HEADERS
 
 my $backend;
