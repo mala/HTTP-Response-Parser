@@ -81,22 +81,22 @@ CODE:
       size_t name_len;
       SV** slot;
       if (1) {
-	const char* s;
-	char* d;
-	size_t n;
-	// too large field name
+        const char* s;
+        char* d;
+        size_t n;
+        // too large field name
         if (sizeof(tmp) < headers[i].name_len) {
           /*
           printf("name_len: %d\n", headers[i].name_len);
           printf("name: %s\n", headers[i].name);
           */
-      	  // hv_clear(res);
+                // hv_clear(res);
           ret = -1;
           goto done;
         }
         for (s = headers[i].name, n = headers[i].name_len, d = tmp;
-	     n != 0;
-	     s++, --n, d++)
+             n != 0;
+             s++, --n, d++)
           *d = *s == '_' ? '-' : tol(*s);
         name = tmp;
         name_len = headers[i].name_len;
@@ -107,15 +107,15 @@ CODE:
         croak("failed to create hash entry");
       if (SvOK(*slot)) {
         
-	if (SvROK(*slot)) {
-	  AV* values = (AV*)SvRV(*slot);
+        if (SvROK(*slot)) {
+          AV* values = (AV*)SvRV(*slot);
           SV* newval = newSVpvn(headers[i].value, headers[i].value_len);
           av_push(values, newval);
           last_value = newval;
-	} else {
-	  AV* values = newAV();
-	  SV* old_val = *slot;
-	  SvREFCNT_inc(old_val);
+        } else {
+          AV* values = newAV();
+          SV* old_val = *slot;
+          SvREFCNT_inc(old_val);
           SV* newval = newSVpvn(headers[i].value, headers[i].value_len);
 
           av_push(values, old_val);
@@ -124,7 +124,7 @@ CODE:
 
           slot = hv_store(h_headers, name, name_len, values_ref, 0U);
           last_value = newval;
-	}
+        }
       } else {
         sv_setpvn(*slot, headers[i].value, headers[i].value_len);
         last_value = *slot;
