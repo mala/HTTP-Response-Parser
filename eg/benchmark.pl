@@ -63,7 +63,7 @@ if ($@) {
 for (qw(small_header large_header)) {
     my $buf = $header{$_};
     printf "parse %s\n", $_;
-    timethese 20000, {
+    cmpthese timethese 20000, {
         parse => sub { HTTP::Response->parse($buf) },
         xs    => sub { HTTP::Response::Parser::parse($buf) },
     };
