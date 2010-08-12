@@ -6,3 +6,7 @@ inc
 pm_to_blib
 MANIFEST
 Makefile.old
+ppport.h
+*.o
+*.out
+*.bak
