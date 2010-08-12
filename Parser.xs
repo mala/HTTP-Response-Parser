@@ -24,8 +24,9 @@ __inline char tol(char ch)
 
 MODULE = HTTP::Response::Parser PACKAGE = HTTP::Response::Parser::XS
 
+PROTOTYPES: DISABLE
+
 int parse_http_response(SV* buf, SV* resref)
-PROTOTYPE: $$
 CODE:
 {
   const char* buf_str;
@@ -114,15 +115,13 @@ CODE:
           last_value = newval;
         } else {
           AV* values = newAV();
-          SV* old_val = *slot;
-          SvREFCNT_inc(old_val);
           SV* newval = newSVpvn(headers[i].value, headers[i].value_len);
 
-          av_push(values, old_val);
+          av_push(values, SvREFCNT_inc_simple_NN(*slot));
           av_push(values, newval);
-          SV* values_ref = (SV*)newRV_noinc( (SV*)values );
 
-          slot = hv_store(h_headers, name, name_len, values_ref, 0U);
+          slot = hv_store(h_headers, name, name_len,
+            newRV_noinc((SV*)values), 0U);
           last_value = newval;
         }
       } else {
@@ -131,7 +130,7 @@ CODE:
       }
     } else {
       /* continuing lines of a mulitiline header */
-      sv_catpvn(last_value, "\n", 1);
+      sv_catpvs(last_value, "\n");
       sv_catpvn(last_value, headers[i].value, headers[i].value_len);
     }
   }
