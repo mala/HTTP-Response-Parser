@@ -1,7 +1,10 @@
+#define PERL_NO_GET_CONTEXT
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
 #include "picohttpparser/picohttpparser.c"
+
+#include "ppport.h"
 
 #define MAX_HEADERS 128
 
@@ -32,11 +35,14 @@ CODE:
   int minor_version, status;
   struct phr_header headers[MAX_HEADERS];
   size_t num_headers;
-  int ret, i;
+  size_t i;
+  int ret;
   HV* res;
   SV* last_value;
   char tmp[1024];
-  
+  HV* h_headers = newHV();
+  SV* ref = (SV*)newRV_noinc( (SV*)h_headers );
+
   if ( SvROK(buf) ) {
     buf_str = SvPV( SvRV(buf), buf_len);
   } else {
@@ -56,21 +62,18 @@ CODE:
     Perl_croak(aTHX_ "second param to parse_http_response should be a hashref");
   
   // status line parsed
-  sprintf(tmp, "HTTP/1.%d", minor_version);
-  hv_store(res, "_protocol", sizeof("_protocol") - 1, newSVpv(tmp, 0), 0);
-  hv_store(res, "_rc", sizeof("_rc") - 1, newSViv(status), 0);
+  hv_stores(res, "_protocol", newSVpvf("HTTP/1.%d", minor_version));
+  hv_stores(res, "_rc",       newSViv(status));
   /*  printf("status: %d\n", ret);
     printf("msg_len: %d\n", msg_len);
     printf("num_headers: %d\n", num_headers);
   */
-  hv_store(res, "_msg", sizeof("_msg") - 1, newSVpvn(msg, msg_len), 0);
+  hv_stores(res, "_msg", newSVpvn(msg, msg_len));
   // printf("hoge4\n");
   
   last_value = NULL;
 
-  HV* h_headers = newHV();
-  SV* ref = (SV*)newRV_noinc( (SV*)h_headers );
-  hv_store(res, "_headers", sizeof("_headers") - 1, ref, 0);
+  hv_stores(res, "_headers", ref);
 
   for (i = 0; i < num_headers; ++i) {
     if (headers[i].name != NULL) {
@@ -99,7 +102,7 @@ CODE:
         name_len = headers[i].name_len;
       }
 
-      slot = hv_fetch(h_headers, name, name_len, 1);
+      slot = hv_fetch(h_headers, name, name_len, TRUE);
       if ( !slot )
         croak("failed to create hash entry");
       if (SvOK(*slot)) {
@@ -119,7 +122,7 @@ CODE:
           av_push(values, newval);
           SV* values_ref = (SV*)newRV_noinc( (SV*)values );
 
-          slot = hv_store(h_headers, name, name_len, values_ref, 0);
+          slot = hv_store(h_headers, name, name_len, values_ref, 0U);
           last_value = newval;
 	}
       } else {
@@ -138,3 +141,4 @@ CODE:
 }
 OUTPUT:
   RETVAL
+

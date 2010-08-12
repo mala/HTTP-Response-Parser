@@ -2,13 +2,13 @@ use inc::Module::Install;
 name 'HTTP-Response-Parser';
 all_from 'lib/HTTP/Response/Parser.pm';
 
-can_cc or die "This module requires a C compiler";
+cc_warnings;
+use_ppport;
 
 test_requires 'Test::More';
 test_requires 'HTTP::Response';
 
 makemaker_args(
-    OBJECT => '$(O_FILES)',
     clean => {
         FILES => q{
             *.stackdump
