@@ -1,3 +1,5 @@
+#!perl -w
+use strict;
 use Test::More;
 
 use HTTP::Response;
@@ -10,7 +12,7 @@ my $XS = eval {
     1 
 };
 
-note "Skip XS test";
+no warnings 'misc';
 
 use Data::Dumper;
 
