@@ -1,8 +1,16 @@
 #include <stddef.h>
 #include "picohttpparser.h"
 
+#ifdef __GNUC__
+# define likely(x)	__builtin_expect(!!(x), 1)
+# define unlikely(x)	__builtin_expect(!!(x), 0)
+#else
+# define likely(x) (x)
+# define unlikely(x) (x)
+#endif
+
 #define CHECK_EOF()	\
-  if (buf == buf_end) { \
+  if (buf == buf_end) {	\
     *ret = -2;		\
     return NULL;	\
   }
@@ -29,24 +37,44 @@
     toklen = buf - tok_start;			       \
   } while (0)
 
-#define ADVANCE_EOL(tok, toklen) do {	      \
-    const char* tok_start = buf;	      \
-    for (; ; ++buf) {			      \
-      CHECK_EOF();			      \
-      if (*buf == '\r' || *buf == '\n') {     \
-	break;				      \
-      }					      \
-    }					      \
-    if (*buf == '\r') {			      \
-      ++buf;				      \
-      EXPECT_CHAR('\n');		      \
-      toklen = buf - 2 - tok_start;	      \
-    } else { /* should be: *buf == '\n' */    \
-      toklen = buf - tok_start;		      \
-      ++buf;				      \
-    }					      \
-    tok = tok_start;			      \
-  } while (0)
+static const char* get_token_to_eol(const char* buf, const char* buf_end,
+				    const char** token, size_t* token_len,
+				    int* ret)
+{
+  const char* token_start = buf;
+  
+  while (1) {
+    if (likely(buf_end - buf >= 16)) {
+      unsigned i;
+      for (i = 0; i < 16; i++, ++buf) {
+	if (unlikely((unsigned char)*buf <= '\r')
+	    && (*buf == '\r' || *buf == '\n')) {
+	  goto EOL_FOUND;
+	}
+      }
+    } else {
+      for (; ; ++buf) {
+	CHECK_EOF();
+	if (unlikely((unsigned char)*buf <= '\r')
+	    && (*buf == '\r' || *buf == '\n')) {
+	  goto EOL_FOUND;
+	}
+      }
+    }
+  }
+ EOL_FOUND:
+  if (*buf == '\r') {
+    ++buf;
+    EXPECT_CHAR('\n');
+    *token_len = buf - 2 - token_start;
+  } else { /* should be: *buf == '\n' */
+    *token_len = buf - token_start;
+    ++buf;
+  }
+  *token = token_start;
+  
+  return buf;
+}
   
 static const char* is_complete(const char* buf, const char* buf_end,
 			       size_t last_len, int* ret)
@@ -81,12 +109,13 @@ static const char* is_complete(const char* buf, const char* buf_end,
 static const char* parse_int(const char* buf, const char* buf_end, int* value,
 			     int* ret)
 {
+  int v;
   CHECK_EOF();
   if (! ('0' <= *buf && *buf <= '9')) {
     *ret = -1;
     return NULL;
   }
-  int v = 0;
+  v = 0;
   for (; ; ++buf) {
     CHECK_EOF();
     if ('0' <= *buf && *buf <= '9') {
@@ -153,7 +182,11 @@ static const char* parse_headers(const char* buf, const char* buf_end,
       headers[*num_headers].name = NULL;
       headers[*num_headers].name_len = 0;
     }
-    ADVANCE_EOL(headers[*num_headers].value, headers[*num_headers].value_len);
+    if ((buf = get_token_to_eol(buf, buf_end, &headers[*num_headers].value,
+				&headers[*num_headers].value_len, ret))
+	== NULL) {
+      return NULL;
+    }
   }
   return buf;
 }
@@ -207,7 +240,7 @@ int phr_parse_request(const char* buf_start, size_t len, const char** method,
   *method_len = 0;
   *path = NULL;
   *path_len = 0;
-  *minor_version = 0;
+  *minor_version = -1;
   *num_headers = 0;
   
   /* if last_len != 0, check if the request is complete (a fast countermeasure
@@ -252,7 +285,9 @@ static const char* parse_response(const char* buf, const char* buf_end,
     return NULL;
   }
   /* get message */
-  ADVANCE_EOL(*msg, *msg_len);
+  if ((buf = get_token_to_eol(buf, buf_end, msg, msg_len, ret)) == NULL) {
+    return NULL;
+  }
   
   return parse_headers(buf, buf_end, headers, num_headers, max_headers, ret);
 }
@@ -266,7 +301,7 @@ int phr_parse_response(const char* buf_start, size_t len, int* minor_version,
   size_t max_headers = *num_headers;
   int r;
   
-  *minor_version = 0;
+  *minor_version = -1;
   *status = 0;
   *msg = NULL;
   *msg_len = 0;
