@@ -63,18 +63,18 @@ CODE:
     Perl_croak(aTHX_ "second param to parse_http_response should be a hashref");
   
   // status line parsed
-  hv_stores(res, "_protocol", newSVpvf("HTTP/1.%d", minor_version));
-  hv_stores(res, "_rc",       newSViv(status));
+  (void)hv_stores(res, "_protocol", newSVpvf("HTTP/1.%d", minor_version));
+  (void)hv_stores(res, "_rc",       newSViv(status));
   /*  printf("status: %d\n", ret);
     printf("msg_len: %d\n", msg_len);
     printf("num_headers: %d\n", num_headers);
   */
-  hv_stores(res, "_msg", newSVpvn(msg, msg_len));
+  (void)hv_stores(res, "_msg", newSVpvn(msg, msg_len));
   // printf("hoge4\n");
   
   last_value = NULL;
 
-  hv_stores(res, "_headers", ref);
+  (void)hv_stores(res, "_headers", ref);
 
   for (i = 0; i < num_headers; ++i) {
     if (headers[i].name != NULL) {
