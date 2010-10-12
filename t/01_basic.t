@@ -144,6 +144,7 @@ if ($XS) {
     *HTTP::Response::Parser::parse_http_response = *HTTP::Response::Parser::PP::parse_http_response;
     do_test();
 } else {
+    $backend = 'PP';
     do_test();
 }
 
