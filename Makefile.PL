@@ -5,7 +5,7 @@ all_from 'lib/HTTP/Response/Parser.pm';
 cc_warnings;
 use_ppport;
 
-test_requires 'Test::More';
+test_requires 'Test::More' => 0.96;
 test_requires 'HTTP::Response';
 
 makemaker_args(
