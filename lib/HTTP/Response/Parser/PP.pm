@@ -11,8 +11,8 @@ our %EXPORT_TAGS = (
 our @EXPORT_OK = @{$EXPORT_TAGS{all}};
 our @EXPORT = @EXPORT_OK;
 
-sub parse_http_response($$) {
-    my ($str, $res) = @_;
+sub parse_http_response($$;$) {
+    my ($str, $res, $option) = @_;
     return -2 unless $str;
 
     my $len = length $str;
@@ -31,7 +31,7 @@ sub parse_http_response($$) {
     return -2 unless ($remain =~/\r?\n\r?\n/ || $content);
     my $parsed = $len - (defined $content ? length $content : 0);
 
-    return wantarray ? ($parsed, $minor_version, $rc, $msg) : $parsed;
+    return $option ? ($parsed, $minor_version, $rc, $msg) : $parsed;
 }
 
 # parse "Field: value\r\n"
