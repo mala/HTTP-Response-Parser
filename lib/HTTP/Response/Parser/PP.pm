@@ -19,7 +19,8 @@ sub parse_http_response($$) {
     
     my ($sl, $remain) = split /\r?\n/, $_[0], 2;
     my ($proto, $rc, $msg) = split(' ', $sl, 3);
-    return -1 unless $proto =~m{^HTTP/1.\d};
+    return -1 unless $proto =~m{^HTTP/1.(\d)};
+    my $minor_version = $1;
     return -1 unless $rc =~m/^\d+$/;
     
     ($res->{'_protocol'}, $res->{'_rc'}, $res->{'_msg'}) = ($proto, $rc, $msg);
@@ -29,7 +30,8 @@ sub parse_http_response($$) {
 
     return -2 unless ($remain =~/\r?\n\r?\n/ || $content);
     my $parsed = $len - (defined $content ? length $content : 0);
-    return $parsed;
+
+    return wantarray ? ($parsed, $minor_version, $rc, $msg) : $parsed;
 }
 
 # parse "Field: value\r\n"
