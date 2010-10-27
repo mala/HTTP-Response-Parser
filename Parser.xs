@@ -153,12 +153,11 @@ PPCODE:
   SV** svp;
 
   if(ret < 0) {
-      if(ret == -1) {
-          croak("Invalid HTTP response");
-      }
-      else {
-          croak("Insufficient HTTP response");
-      }
+      (void)hv_stores(self, "errcode", newSViv(ret));
+      (void)hv_stores(self, "errstr", ret == -1
+        ? newSVpvs("Invalid HTTP response")
+        : newSVpvs("Insufficient HTTP response"));
+      XSRETURN_UNDEF;
   }
 
   res_obj    = sv_2mortal(newRV_inc((SV*)res));

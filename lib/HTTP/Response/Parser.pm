@@ -39,6 +39,9 @@ sub new {
     return bless \%args, $class;
 }
 
+sub errstr  { $_[0]->{errstr}  }
+sub errocde { $_[0]->{errcode} }
+
 1;
 
 __END__
