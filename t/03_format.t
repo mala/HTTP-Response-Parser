@@ -92,7 +92,7 @@ while (@tests) {
         is_deeply(
             $headers,
             $r->{ "HEADER_AS_". $formats{$format} }, 
-            'test-format'.$i
+            'test-format-'. $formats{$format} . "-" .$i
         ) or diag(explain($headers))
     }
 

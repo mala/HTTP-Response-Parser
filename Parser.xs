@@ -54,6 +54,8 @@ int do_parse( aTHX_
     *res_headers = (SV*)newHV_mortal();
   } else if (header_format == FORMAT_ARRAYREF) {
     *res_headers = (SV*)newAV_mortal();
+  } else if (header_format == FORMAT_NONE) {
+    *res_headers = (SV*)&PL_sv_undef;
   }
 
   for (i = 0; i < num_headers; i++) {
@@ -137,7 +139,11 @@ PPCODE:
     mPUSHi(minor_version);
     mPUSHi(status);
     mPUSHp(msg, msg_len);
-    mPUSHs(newRV_inc(res_headers));
+    if (res_headers == &PL_sv_undef) {
+      mPUSHs(&PL_sv_undef);
+    } else {
+      mPUSHs(newRV(res_headers));
+    }
   }
   else {
     EXTEND(SP, 1);
