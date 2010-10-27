@@ -3,6 +3,10 @@
 
 #define MAX_HEADERS 128
 
+#define FORMAT_NONE     0
+#define FORMAT_HASHREF  1
+#define FORMAT_ARRAYREF 2
+
 STATIC_INLINE char tol(char const ch)
 {
   return ('A' <= ch && ch <= 'Z')
@@ -28,22 +32,29 @@ static
 int do_parse( aTHX_
         /* input: */
         SV* const buf,
-        size_t const last_len,
+        int header_format,
         /* output: */
         int* const minor_version,
         int* const status,
         const char** const msg, size_t* const msg_len,
-        SV* const res_headers, /* AV or HV */
+        SV** const res_headers,
         HV* const special_headers ) {
   struct phr_header headers[MAX_HEADERS];
   size_t num_headers = MAX_HEADERS;
   STRLEN buf_len;
   const char* const buf_str = SvPV_const(buf, buf_len);
+  size_t last_len = 0;
   int const ret             = phr_parse_response(buf_str, buf_len,
     minor_version, status, msg, msg_len, headers, &num_headers, last_len);
   SV* last_values[] = { NULL, NULL };
   int const last_values_len = special_headers ? 2 : 1;
   size_t i;
+
+  if (header_format == FORMAT_HASHREF) {
+    *res_headers = (SV*)newHV_mortal();
+  } else if (header_format == FORMAT_ARRAYREF) {
+    *res_headers = (SV*)newAV_mortal();
+  }
 
   for (i = 0; i < num_headers; i++) {
     if (headers[i].name != NULL) {
@@ -64,28 +75,27 @@ int do_parse( aTHX_
           }
       }
 
-      if(SvTYPE(res_headers) == SVt_PVAV) { /* for Furl */
-        av_push((AV*)res_headers, SvREFCNT_inc_simple_NN(namesv));
-        av_push((AV*)res_headers, SvREFCNT_inc_simple_NN(valuesv));
-      }
-      else { /* res_headers is a HASH, for $hrp->parse() */
-        HE* const slot = hv_fetch_ent((HV*)res_headers, namesv, FALSE, 0U);
+      if (header_format == FORMAT_HASHREF) {
+        HE* const slot = hv_fetch_ent((HV*)*res_headers, namesv, FALSE, 0U);
         if(!slot) { /* first time */
-            (void)hv_store_ent((HV*)res_headers, namesv,
+            (void)hv_store_ent((HV*)*res_headers, namesv,
                 SvREFCNT_inc_simple_NN(valuesv), 0U);
         }
         else { /* second time; the header has multiple values */
-            SV* sv = hv_iterval((HV*)res_headers, slot);
+            SV* sv = hv_iterval((HV*)*res_headers, slot);
             if(!( SvROK(sv) && SvTYPE(SvRV(sv)) == SVt_PVAV )) {
                 /* make $value to [$value] and restore it to $res_header */
                 AV* const av    = newAV();
                 SV* const avref = newRV_noinc((SV*)av);
                 (void)av_store(av, 0, SvREFCNT_inc_simple_NN(sv));
-                (void)hv_store_ent((HV*)res_headers, namesv, avref, 0U);
+                (void)hv_store_ent((HV*)*res_headers, namesv, avref, 0U);
                 sv = avref;
             }
             av_push((AV*)SvRV(sv), SvREFCNT_inc_simple_NN(valuesv));
         }
+      } else if (header_format == FORMAT_ARRAYREF) {
+            av_push((AV*)*res_headers, SvREFCNT_inc_simple_NN(namesv));
+            av_push((AV*)*res_headers, SvREFCNT_inc_simple_NN(valuesv));
       }
       last_values[0] = valuesv;
     } else {
@@ -107,22 +117,19 @@ MODULE = HTTP::Response::Parser PACKAGE = HTTP::Response::Parser
 PROTOTYPES: DISABLE
 
 void
-parse_http_response(SV* buf, size_t last_len, SV* res_headers, HV* special_headers = NULL)
+parse_http_response(SV* buf, int header_format, HV* special_headers = NULL)
 PPCODE:
 {
   int minor_version, status;
   const char* msg;
   size_t msg_len;
   int ret;
-  if(!(SvROK(res_headers)
-        && ( SvTYPE(SvRV(res_headers)) == SVt_PVHV
-          || SvTYPE(SvRV(res_headers)) == SVt_PVAV ) )) {
-      croak("res_headers must be an ARRAY reference or a HASH reference");
-  }
 
-  ret = do_parse(aTHX_ buf, last_len,
+  SV *res_headers;
+
+  ret = do_parse(aTHX_ buf, header_format,
     &minor_version, &status, &msg, &msg_len,
-    SvRV(res_headers), special_headers);
+    &res_headers, special_headers);
   
   if(ret > 0) {
     EXTEND(SP, 4);
@@ -130,6 +137,7 @@ PPCODE:
     mPUSHi(minor_version);
     mPUSHi(status);
     mPUSHp(msg, msg_len);
+    mPUSHs(newRV_inc(res_headers));
   }
   else {
     EXTEND(SP, 1);
@@ -144,9 +152,9 @@ PPCODE:
   int minor_version, status;
   const char* msg;
   size_t msg_len;
-  HV* const res_headers = newHV_mortal();
-  int const ret = do_parse(aTHX_ header, 0 /* last_len */,
-    &minor_version, &status, &msg, &msg_len, (SV*)res_headers, NULL);
+  SV *res_headers;
+  int const ret = do_parse(aTHX_ header, FORMAT_HASHREF /* last_len */,
+    &minor_version, &status, &msg, &msg_len, &res_headers, NULL);
   HV* const res = newHV_mortal();
   SV* res_obj;
   SV* header_obj;
