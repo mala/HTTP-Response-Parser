@@ -1,25 +1,20 @@
-#define PERL_NO_GET_CONTEXT
-#include "EXTERN.h"
-#include "perl.h"
-#include "XSUB.h"
+#include "xshelper.h"
 #include "picohttpparser/picohttpparser.c"
-
-#include "ppport.h"
 
 #define MAX_HEADERS 128
 
-__inline char tou(char ch)
+STATIC_INLINE char tou(char const ch)
 {
-  if ('a' <= ch && ch <= 'z')
-    ch -= 'a' - 'A';
-  return ch;
+  return ('a' <= ch && ch <= 'z') 
+    ? ch - ('a' - 'A')
+    : ch;
 }
 
-__inline char tol(char ch)
+STATIC_INLINE char tol(char const ch)
 {
-  if ('A' <= ch && ch <= 'Z')
-    ch -= 'A' - 'a';
-  return ch;
+  return ('A' <= ch && ch <= 'Z')
+    ? ch - ('A' - 'a')
+    : ch;
 }
 
 MODULE = HTTP::Response::Parser PACKAGE = HTTP::Response::Parser::XS

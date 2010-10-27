@@ -1,9 +1,10 @@
 use inc::Module::Install;
+use Module::Install::XSUtil;
 name 'HTTP-Response-Parser';
 all_from 'lib/HTTP/Response/Parser.pm';
 
 cc_warnings;
-use_ppport;
+use_xshelper;
 
 test_requires 'Test::More' => 0.96;
 test_requires 'HTTP::Response';
