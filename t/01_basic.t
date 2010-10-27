@@ -3,18 +3,11 @@ use strict;
 use Test::More;
 
 use HTTP::Response;
-use HTTP::Response::Parser qw(parse);
-
-require HTTP::Response::Parser::PP;
-# require HTTP::Response::Parser::XS;
-my $XS = eval {
-    require HTTP::Response::Parser::XS;
-    1 
-};
-
-no warnings 'misc';
-
+use HTTP::Headers;
+use HTTP::Response::Parser;
 use Data::Dumper;
+
+my $hrp = HTTP::Response::Parser->new();
 
 my $tests = <<'__HEADERS';
 HTTP/1.0 200 OK
@@ -73,6 +66,7 @@ hogehoge
 ----------
 HTTP/1.0 200 OK
 Content-Type: text/html
+
 ----------
 {
  '_content' => "",
@@ -84,6 +78,7 @@ Content-Type: text/html
 ----------
 HTTP/1.1 200 OK
 Content-Type: text/html
+
 ----------
 {
  '_content' => "",
@@ -95,6 +90,7 @@ Content-Type: text/html
 ----------
 HTTP/1.1 404 Not Found
 Content-Type: text/html
+
 ----------
 {
  '_content' => "",
@@ -106,46 +102,30 @@ Content-Type: text/html
 ----------
 HTTP/1.1 200 OK
 Content-Type: text/html
-FOO_BAR: 42
+FOO_BAR: BAZ
+
 ----------
 {
  '_content' => "",
  '_protocol' => 'HTTP/1.1',
- '_headers' => { "content-type" => "text/html", "foo-bar" => 42},
+ '_headers' => { "content-type" => "text/html", "foo-bar" => 'BAZ'},
  '_rc' => 200,
  '_msg' => 'OK'
 }
 __HEADERS
 
-my $backend;
-
-sub do_test {
-    note $backend;
-    my @tests = split '-'x10, $tests;
-    my $i = 0;
-    while (@tests) {
-        $i++;
-        my $header = shift @tests;
-        my $expect = shift @tests;
-        $header =~ s/^\n//;
-        last unless $expect;
-        my $res = parse($header);
-        my $r   = eval($expect);
-        is_deeply( $res, $r, $backend . " " . $i);
-        isa_ok( $res,             'HTTP::Response' );
-        isa_ok( $res->{_headers}, 'HTTP::Headers' );
-    }
+my @tests = split '-'x10, $tests;
+my $i = 0;
+while (@tests) {
+    $i++;
+    my $header = shift @tests;
+    my $expect = shift @tests;
+    $header =~ s/^\n//;
+    last unless $expect;
+    my $res = $hrp->parse($header);
+    my $r   = eval($expect);
+    is_deeply( $res, $r, 'test-' . $i) or diag(explain($res));
+    isa_ok( $res,             'HTTP::Response' );
+    isa_ok( $res->{_headers}, 'HTTP::Headers' );
 }
-
-if ($XS) {
-    $backend = "XS test";
-    do_test();
-    $backend = "PP test";
-    *HTTP::Response::Parser::parse_http_response = *HTTP::Response::Parser::PP::parse_http_response;
-    do_test();
-} else {
-    $backend = 'PP';
-    do_test();
-}
-
 done_testing;

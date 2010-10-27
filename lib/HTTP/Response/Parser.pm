@@ -1,5 +1,5 @@
 package HTTP::Response::Parser;
-
+use 5.008;
 use strict;
 use warnings;
 our $VERSION = '0.01';
@@ -7,51 +7,37 @@ our $VERSION = '0.01';
 use base qw(Exporter);
 
 our %EXPORT_TAGS = (
-    'all' => [ qw/parse parse_http_response/ ],
+    'all' => [ qw/parse_http_response/ ],
 );
 our @EXPORT_OK = @{$EXPORT_TAGS{all}};
 our @EXPORT = ();
 
-our $HEADER_CLASS = 'HTTP::Headers';
+our $HEADER_CLASS   = 'HTTP::Headers';
 our $RESPONSE_CLASS = 'HTTP::Response';
 
-{
-    if (!$ENV{PERL_HTTP_RESPONSE_PARSER_PP} && eval { require HTTP::Response::Parser::XS; 1 }) {
-        *parse_http_response = \&HTTP::Response::Parser::XS::parse_http_response;
-    } else {
+our $BACKEND;
+if (not exists $INC{"HTTP/Response/Parser/PP.pm"}) {
+    $BACKEND = $ENV{PERL_HTTP_RESPONSE_PARSER} || ($ENV{PERL_ONLY} ? 'pp' : '');
+    if ($BACKEND !~ /\b pp \b/xms) {
+        eval {
+            require XSLoader;
+            XSLoader::load(__PACKAGE__, $VERSION);
+            $BACKEND = 'xs';
+        };
+        die $@ if $@ && $BACKEND =~ /\bxs\b/;
+    }
+    if (not __PACKAGE__->can('parse_http_response')) {
         require HTTP::Response::Parser::PP;
-        *parse_http_response = \&HTTP::Response::Parser::PP::parse_http_response;
     }
 }
 
-# parse($header_and_content);
-# parse($header, $content);
-sub parse {
-    my $res = {};
-    my $parsed = parse_http_response( $_[0], $res, 0 );
-    if ($parsed == -1) {
-        warnings::warnif misc =>  "invalid response";
-        return;
-    }
-    if ($parsed == -2) {
-        warnings::warnif
-            misc => "warning: successfully parsed, but HTTP headers may be incomplete.";
-    } 
-    
-    if ( defined $_[1] ) {
-        $res->{_content} = $_[1];
-    }
-    elsif($parsed > 0) {
-        $res->{_content} = substr( $_[0], $parsed ) || "";
-    } else { # -2
-        $res->{_content} = "";
-    }
-
-    bless $res->{_headers}, $HEADER_CLASS if $HEADER_CLASS;
-    bless $res, $RESPONSE_CLASS if $RESPONSE_CLASS;
-    return $res;
+sub new {
+    my $class = shift;
+    my %args  = @_ == 1 ? %{$_[0]} : @_;
+    $args{header_class}   ||= $HEADER_CLASS;
+    $args{response_class} ||= $RESPONSE_CLASS;
+    return bless \%args, $class;
 }
-
 
 1;
 

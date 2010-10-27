@@ -3,16 +3,19 @@ package HTTP::Response::Parser::PP;
 use strict;
 use warnings;
 
-use base qw(Exporter);
+{
+    no warnings 'once', 'redefine';
+    *HTTP::Response::Parser::parse               = \&parse;
+    *HTTP::Response::Parser::parse_http_response = \&parse_http_response;
+}
 
-our %EXPORT_TAGS = (
-    'all' => [ qw/parse_http_response/ ],
-);
-our @EXPORT_OK = @{$EXPORT_TAGS{all}};
-our @EXPORT = @EXPORT_OK;
+sub parse {
+    my($self, $header, $content) = @_;
+    die 'TODO';
+}
 
-sub parse_http_response($$;$) {
-    my ($str, $res, $option) = @_;
+sub parse_http_response {
+    my ($str, $last_len, $res, $option) = @_;
     return -2 unless $str;
 
     my $len = length $str;
@@ -36,7 +39,7 @@ sub parse_http_response($$;$) {
 
 # parse "Field: value\r\n"
 sub _parse_header_field {
-    my $str = shift;
+    my($str) = @_;
     return +{} unless defined $str;
     
     my ( %self, $field, $value, $f );

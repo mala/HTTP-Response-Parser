@@ -17,127 +17,181 @@ STATIC_INLINE char tol(char const ch)
     : ch;
 }
 
-MODULE = HTTP::Response::Parser PACKAGE = HTTP::Response::Parser::XS
+STATIC_INLINE
+SV* my_new_name(pTHX_ const char* const pv, STRLEN const len) {
+    SV* const sv  = sv_2mortal(newSV(len));
+    char* const d = SvPVX_mutable(sv);
+    STRLEN i;
+    for(i = 0; i < len; i++) {
+        d[i] = pv[i] == '_' ? '-' : tol(pv[i]);
+    }
+    SvPOK_on(sv);
+    SvCUR_set(sv, len);
+    *SvEND(sv) = '\0';
+    return sv;
+}
+
+static
+int do_parse( aTHX_
+        /* input: */
+        SV* const buf,
+        size_t const last_len,
+        /* output: */
+        int* const minor_version,
+        int* const status,
+        const char** const msg, size_t* const msg_len,
+        SV* const res_headers, /* AV or HV */
+        HV* const special_headers ) {
+  struct phr_header headers[MAX_HEADERS];
+  size_t num_headers = MAX_HEADERS;
+  STRLEN buf_len;
+  const char* const buf_str = SvPV_const(buf, buf_len);
+  int const ret             = phr_parse_response(buf_str, buf_len,
+    minor_version, status, msg, msg_len, headers, &num_headers, last_len);
+  SV* last_values[] = { NULL, NULL };
+  int const last_values_len = special_headers ? 2 : 1;
+  size_t i;
+
+  for (i = 0; i < num_headers; i++) {
+    if (headers[i].name != NULL) {
+      SV* const namesv = my_new_name(aTHX_
+        headers[i].name, headers[i].name_len);
+      SV* const valuesv = newSVpvn_flags(
+        headers[i].value, headers[i].value_len, SVs_TEMP);
+
+      if(special_headers) {
+          HE* const slot = hv_fetch_ent(special_headers, namesv, FALSE, 0U);
+          if (slot) {
+            SV* const placeholder = hv_iterval(special_headers, slot);
+            SvSetMagicSV_nosteal(placeholder, valuesv);
+            last_values[1] = placeholder;
+          }
+          else {
+            last_values[1] = NULL;
+          }
+      }
+
+      if(SvTYPE(res_headers) == SVt_PVAV) {
+        av_push((AV*)res_headers, SvREFCNT_inc_simple_NN(namesv));
+        av_push((AV*)res_headers, SvREFCNT_inc_simple_NN(valuesv));
+      }
+      else {
+        HE* const slot = hv_fetch_ent((HV*)res_headers, namesv, FALSE, 0U);
+        if(!slot) { /* first time */
+            (void)hv_store_ent((HV*)res_headers, namesv,
+                SvREFCNT_inc_simple_NN(valuesv), 0U);
+        }
+        else { /* second time; the header has multiple values */
+            SV* sv = hv_iterval((HV*)res_headers, slot);
+            if(!( SvROK(sv) && SvTYPE(SvRV(sv)) == SVt_PVAV )) {
+                /* make $value to [$value] and restore it to $res_header */
+                AV* const av    = newAV();
+                SV* const avref = newRV_noinc((SV*)av);
+                (void)av_store(av, 0, SvREFCNT_inc_simple_NN(sv));
+                (void)hv_store_ent((HV*)res_headers, namesv, avref, 0U);
+                sv = avref;
+            }
+            av_push((AV*)SvRV(sv), SvREFCNT_inc_simple_NN(valuesv));
+        }
+      }
+      last_values[0] = valuesv;
+    } else {
+      /* continuing lines of a mulitiline header */
+      int j;
+      for(j = 0; j < last_values_len; j++) {
+          if(!last_values[j]) continue;
+
+          sv_catpvs(last_values[j], "\n"); /* XXX: is it correct? */
+          sv_catpvn(last_values[j], headers[i].value, headers[i].value_len);
+      }
+    }
+  }
+  return ret;
+}
+
+MODULE = HTTP::Response::Parser PACKAGE = HTTP::Response::Parser
 
 PROTOTYPES: DISABLE
 
-void parse_http_response(SV* buf, SV* resref, SV* option)
+void
+parse_http_response(SV* buf, size_t last_len, AV* res_headers, HV* special_headers = NULL)
 PPCODE:
 {
-  const char* buf_str;
-  STRLEN buf_len;
+  int minor_version, status;
   const char* msg;
   size_t msg_len;
-  int minor_version, status;
-  struct phr_header headers[MAX_HEADERS];
-  size_t num_headers;
-  size_t i;
-  int ret;
-  HV* res;
-  SV* last_value;
-  char tmp[1024];
-  HV* h_headers = newHV();
-  SV* ref = (SV*)newRV_noinc( (SV*)h_headers );
-
-  if ( SvROK(buf) ) {
-    buf_str = SvPV( SvRV(buf), buf_len);
-  } else {
-    buf_str = SvPV(buf, buf_len);
-  }
-  num_headers = MAX_HEADERS;
-  ret = phr_parse_response(buf_str, buf_len, &minor_version, &status, &msg, &msg_len, headers, &num_headers, 0);
-
-  if (ret == -1)
-    goto done;
+  int const ret = do_parse(aTHX_ buf, last_len,
+    &minor_version, &status, &msg, &msg_len, (SV*)res_headers, special_headers);
   
-  if (!SvROK(resref))
-    Perl_croak(aTHX_ "second param to parse_http_response should be a hashref");
-
-  res = (HV*)SvRV(resref);
-  if (SvTYPE(res) != SVt_PVHV)
-    Perl_croak(aTHX_ "second param to parse_http_response should be a hashref");
-  
-  // status line parsed
-  (void)hv_stores(res, "_protocol", newSVpvf("HTTP/1.%d", minor_version));
-  (void)hv_stores(res, "_rc",       newSViv(status));
-  /*  printf("status: %d\n", ret);
-    printf("msg_len: %d\n", msg_len);
-    printf("num_headers: %d\n", num_headers);
-  */
-  (void)hv_stores(res, "_msg", newSVpvn(msg, msg_len));
-  // printf("hoge4\n");
-  
-  last_value = NULL;
-
-  (void)hv_stores(res, "_headers", ref);
-
-  for (i = 0; i < num_headers; ++i) {
-    if (headers[i].name != NULL) {
-      const char* name;
-      size_t name_len;
-      SV** slot;
-      if (1) {
-        const char* s;
-        char* d;
-        size_t n;
-        // too large field name
-        if (sizeof(tmp) < headers[i].name_len) {
-          /*
-          printf("name_len: %d\n", headers[i].name_len);
-          printf("name: %s\n", headers[i].name);
-          */
-                // hv_clear(res);
-          ret = -1;
-          goto done;
-        }
-        for (s = headers[i].name, n = headers[i].name_len, d = tmp;
-             n != 0;
-             s++, --n, d++)
-          *d = *s == '_' ? '-' : tol(*s);
-        name = tmp;
-        name_len = headers[i].name_len;
-      }
-
-      slot = hv_fetch(h_headers, name, name_len, TRUE);
-      if ( !slot )
-        croak("failed to create hash entry");
-      if (SvOK(*slot)) {
-        
-        if (SvROK(*slot)) {
-          AV* values = (AV*)SvRV(*slot);
-          SV* newval = newSVpvn(headers[i].value, headers[i].value_len);
-          av_push(values, newval);
-          last_value = newval;
-        } else {
-          AV* values = newAV();
-          SV* newval = newSVpvn(headers[i].value, headers[i].value_len);
-
-          av_push(values, SvREFCNT_inc_simple_NN(*slot));
-          av_push(values, newval);
-
-          slot = hv_store(h_headers, name, name_len,
-            newRV_noinc((SV*)values), 0U);
-          last_value = newval;
-        }
-      } else {
-        sv_setpvn(*slot, headers[i].value, headers[i].value_len);
-        last_value = *slot;
-      }
-    } else {
-      /* continuing lines of a mulitiline header */
-      sv_catpvs(last_value, "\n");
-      sv_catpvn(last_value, headers[i].value, headers[i].value_len);
-    }
-  }
-  
- done:
-  if (SvTRUE(option)) {
+  if(ret > 0) {
     EXTEND(SP, 4);
     mPUSHi(ret);
     mPUSHi(minor_version);
     mPUSHi(status);
     mPUSHp(msg, msg_len);
-  } else {
+  }
+  else {
+    EXTEND(SP, 1);
     mPUSHi(ret);
   }
+}
+
+void
+parse(HV* self, SV* header, SV* content = NULL)
+PPCODE:
+{
+  int minor_version, status;
+  const char* msg;
+  size_t msg_len;
+  HV* const res_headers = newHV_mortal();
+  int const ret = do_parse(aTHX_ header, 0 /* last_len */,
+    &minor_version, &status, &msg, &msg_len, (SV*)res_headers, NULL);
+  HV* const res = newHV_mortal();
+  SV* res_obj;
+  SV* header_obj;
+  SV** svp;
+
+  if(ret < 0) {
+      if(ret == -1) {
+          croak("Invalid HTTP response");
+      }
+      else {
+          croak("Insufficient HTTP response");
+      }
+  }
+
+  res_obj    = sv_2mortal(newRV_inc((SV*)res));
+  header_obj = sv_2mortal(newRV_inc((SV*)res_headers));
+
+  /* build HTTP::Response compatible structure */
+  (void)hv_stores(res, "_protocol", newSVpvf("HTTP/1.%d", minor_version));
+  (void)hv_stores(res, "_rc",       newSViv(status));
+  (void)hv_stores(res, "_msg",      newSVpvn(msg, msg_len));
+  (void)hv_stores(res, "_headers",  SvREFCNT_inc_simple_NN(header_obj));
+
+  if(content) {
+      (void)hv_stores(res, "_content", newSVsv(content));
+  }
+  else {
+      STRLEN buf_len;
+      const char* const buf_str = SvPV_const(header, buf_len);
+      (void)hv_stores(res, "_content",
+        newSVpvn(buf_str + ret, buf_len - ret));
+  }
+
+  /* bless headers and response object if classes are specified */
+
+  svp = hv_fetchs(self, "header_class", FALSE);
+  if(svp && SvOK(*svp)) {
+     HV* const header_class = gv_stashsv(*svp, GV_ADD);
+     sv_bless(header_obj, header_class);
+  }
+
+  svp = hv_fetchs(self, "response_class", FALSE);
+  if(svp && SvOK(*svp)) {
+     HV* const response_class = gv_stashsv(*svp, GV_ADD);
+     sv_bless(res_obj, response_class);
+  }
+
+  XPUSHs(res_obj);
 }
