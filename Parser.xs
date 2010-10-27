@@ -3,13 +3,6 @@
 
 #define MAX_HEADERS 128
 
-STATIC_INLINE char tou(char const ch)
-{
-  return ('a' <= ch && ch <= 'z') 
-    ? ch - ('a' - 'A')
-    : ch;
-}
-
 STATIC_INLINE char tol(char const ch)
 {
   return ('A' <= ch && ch <= 'Z')
