@@ -28,7 +28,7 @@ our $RESPONSE_CLASS = 'HTTP::Response';
 # parse($header, $content);
 sub parse {
     my $res = {};
-    my $parsed = parse_http_response( $_[0], $res );
+    my $parsed = parse_http_response( $_[0], $res, 0 );
     if ($parsed == -1) {
         warnings::warnif misc =>  "invalid response";
         return;

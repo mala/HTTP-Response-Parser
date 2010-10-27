@@ -61,7 +61,7 @@ sub do_test {
         $header =~ s/^\n//;
         last unless $expect;
         my $res = {};
-        my $parsed = HTTP::Response::Parser::parse_http_response($header, $res);
+        my $parsed = HTTP::Response::Parser::parse_http_response($header, $res, 0);
         my $r   = eval($expect);
         is( $parsed, $r, "$backend $i");
     }

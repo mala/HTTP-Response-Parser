@@ -26,8 +26,8 @@ MODULE = HTTP::Response::Parser PACKAGE = HTTP::Response::Parser::XS
 
 PROTOTYPES: DISABLE
 
-int parse_http_response(SV* buf, SV* resref)
-CODE:
+void parse_http_response(SV* buf, SV* resref, SV* option)
+PPCODE:
 {
   const char* buf_str;
   STRLEN buf_len;
@@ -136,8 +136,13 @@ CODE:
   }
   
  done:
-  RETVAL = ret;
+  if (SvTRUE(option)) {
+    EXTEND(SP, 4);
+    mPUSHi(ret);
+    mPUSHi(minor_version);
+    mPUSHi(status);
+    mPUSHp(msg, msg_len);
+  } else {
+    mPUSHi(ret);
+  }
 }
-OUTPUT:
-  RETVAL
-
