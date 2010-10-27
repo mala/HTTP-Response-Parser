@@ -6,7 +6,7 @@ BEGIN {
 
 use Benchmark qw(:all);
 use HTTP::Response;
-use HTTP::Response::Parser qw(parse parse_http_response);
+use HTTP::Response::Parser qw(parse_http_response);
 
 my %header;
 use Data::Dumper;
@@ -51,9 +51,11 @@ Connection: close
 content-body
 END
 
+my $parser = HTTP::Response::Parser->new;
+
 eval {
-    parse($header{small_header});
-    parse($header{large_header});
+    $parser->parse($header{small_header});
+    $parser->parse($header{large_header});
 };
 
 if ($@) {
@@ -65,7 +67,7 @@ for (qw(small_header large_header)) {
     printf "parse %s\n", $_;
     cmpthese timethese 20000, {
         parse => sub { HTTP::Response->parse($buf) },
-        xs    => sub { HTTP::Response::Parser::parse($buf) },
+        xs    => sub { $parser->parse($buf) },
     };
 }
 
