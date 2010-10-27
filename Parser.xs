@@ -64,11 +64,11 @@ int do_parse( aTHX_
           }
       }
 
-      if(SvTYPE(res_headers) == SVt_PVAV) {
+      if(SvTYPE(res_headers) == SVt_PVAV) { /* for Furl */
         av_push((AV*)res_headers, SvREFCNT_inc_simple_NN(namesv));
         av_push((AV*)res_headers, SvREFCNT_inc_simple_NN(valuesv));
       }
-      else {
+      else { /* res_headers is a HASH, for $hrp->parse() */
         HE* const slot = hv_fetch_ent((HV*)res_headers, namesv, FALSE, 0U);
         if(!slot) { /* first time */
             (void)hv_store_ent((HV*)res_headers, namesv,
@@ -107,14 +107,22 @@ MODULE = HTTP::Response::Parser PACKAGE = HTTP::Response::Parser
 PROTOTYPES: DISABLE
 
 void
-parse_http_response(SV* buf, size_t last_len, AV* res_headers, HV* special_headers = NULL)
+parse_http_response(SV* buf, size_t last_len, SV* res_headers, HV* special_headers = NULL)
 PPCODE:
 {
   int minor_version, status;
   const char* msg;
   size_t msg_len;
-  int const ret = do_parse(aTHX_ buf, last_len,
-    &minor_version, &status, &msg, &msg_len, (SV*)res_headers, special_headers);
+  int ret;
+  if(!(SvROK(res_headers)
+        && ( SvTYPE(SvRV(res_headers)) == SVt_PVHV
+          || SvTYPE(SvRV(res_headers)) == SVt_PVAV ) )) {
+      croak("res_headers must be an ARRAY reference or a HASH reference");
+  }
+
+  ret = do_parse(aTHX_ buf, last_len,
+    &minor_version, &status, &msg, &msg_len,
+    SvRV(res_headers), special_headers);
   
   if(ret > 0) {
     EXTEND(SP, 4);
