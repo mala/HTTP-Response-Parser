@@ -2,7 +2,7 @@ package HTTP::Response::Parser::PP;
 
 use strict;
 use warnings;
-use Hash::MultiValue;
+# use Hash::MultiValue;
 
 {
     no warnings 'once', 'redefine';
@@ -11,10 +11,10 @@ use Hash::MultiValue;
 }
 
 my %PARSER_FUNC = (
-    HTTP::Response::Parser::FORMAT_NONE       => \&_parse_as_special,
+    HTTP::Response::Parser::FORMAT_NONE       => \&_parse_as_none,
     HTTP::Response::Parser::FORMAT_HASHREF    => \&_parse_as_hashref,
     HTTP::Response::Parser::FORMAT_ARRAYREF   => \&_parse_as_arrayref,
-    HTTP::Response::Parser::FORMAT_MULTIVALUE => \&_parse_as_multivalue,
+    # HTTP::Response::Parser::FORMAT_MULTIVALUE => \&_parse_as_multivalue,
 );
 
 # create HTTP::Response
@@ -35,7 +35,7 @@ sub parse {
     $res->{'_protocol'} = 'HTTP/1.' . $minor;
     $res->{'_rc'} = $rc;
     $res->{'_msg'} = $msg;
-    $res->{'_header'} = $header_obj;
+    $res->{'_headers'} = $header_obj;
 
     if (defined $content) {
         $res->{_content} = $content;
@@ -43,6 +43,7 @@ sub parse {
         $res->{_content} = substr($header, $ret) || "";
     }
 
+    
     bless $res->{_headers}, $self->{header_class};
     bless $res, $self->{response_class};
 
@@ -66,22 +67,19 @@ sub parse_http_response($$;$) {
     my $parser_func = $PARSER_FUNC{$header_format};
     die 'unknown header format: '. $header_format unless $parser_func;
 
-    my $header = $parser_func->($header_str, $special_headers);
+    my $header = $parser_func->($header_str, $special_headers || +{});
 
-    return -2 unless ($remain =~/\r?\n\r?\n/ || $content);
+    return -2 if ($str !~/\r?\n\r?\n/ && $remain !~/\r?\n\r?\n/ && !defined $content);
     my $parsed = $len - (defined $content ? length $content : 0);
 
-    return (
-        $parsed, $minor_version, $rc, $msg,
-        $header, $special_headers
-    );
+    return ($parsed, $minor_version, $rc, $msg, $header);
 }
 
 # return special headers only
 sub _parse_as_none {
     my ($str, $special) = @_;
     return unless defined $str;
-    return unless defined $special;
+    return unless keys %$special;
 
     my ($field, $value, $f);
     for ( split /\r?\n/, $str ) {
@@ -102,7 +100,7 @@ sub _parse_as_none {
 }
 
 # return headers as arrayref
-sub _parse_as_array {
+sub _parse_as_arrayref {
     my ($str, $special) = @_;
     return [] unless defined $str;
 
@@ -160,7 +158,7 @@ sub _parse_as_hashref {
         }
         else { $self{$f} = $value }
     }
-    \%self;
+    return \%self;
 }
 
 # return multivalue

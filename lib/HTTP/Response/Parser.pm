@@ -11,7 +11,7 @@ use constant {
     FORMAT_NONE       => 0, # don't parse headers. It's fastest. if you want only special headers, also fastest.
     FORMAT_HASHREF    => 1, # HTTP::Headers compatible HashRef, { header_name => "header_value" or ["val1", "val2"] }
     FORMAT_ARRAYREF   => 2, # Ordered ArrayRef : [ name, value, name2, value2 ... ]
-    FORMAT_MULTIVALUE => 3, # Hash::MultiValue, this option is PP only
+    # FORMAT_MULTIVALUE => 3, # Hash::MultiValue, this option is PP only
 };
 
 our %EXPORT_TAGS = (
@@ -43,9 +43,9 @@ if (not exists $INC{"HTTP/Response/Parser/PP.pm"}) {
 
 sub new {
     my $class = shift;
-    my %args  = @_ == 1 ? %{$_[0]} : @_;
-    $args{header_class}   ||= $HEADER_CLASS;
-    $args{response_class} ||= $RESPONSE_CLASS;
+    my %args = @_ == 1 ? %{ $_[0] } : @_;
+    $args{header_class}      ||= $HEADER_CLASS;
+    $args{response_class}    ||= $RESPONSE_CLASS;
     $args{header_raw_format} ||= $HEADER_RAW_FORMAT;
     return bless \%args, $class;
 }

@@ -50,7 +50,7 @@ while (@tests) {
     $header =~ s/^\n//;
     last unless $expect;
     my $res  = [];
-    my($ret) = parse_http_response($header, 0, $res);
+    my ($ret) = parse_http_response($header, HTTP::Response::Parser::FORMAT_HASHREF);
     my $r    = eval($expect);
     is( $ret, $r, "test-$i");
 }
