@@ -6,6 +6,14 @@ our $VERSION = '0.01';
 
 use base qw(Exporter);
 
+# header format 
+use constant {
+    FORMAT_NONE       => 0, # don't parse headers. It's fastest. if you want only special headers, also fastest.
+    FORMAT_HASHREF    => 1, # HTTP::Headers compatible HashRef, { header_name => "header_value" or ["val1", "val2"] }
+    FORMAT_ARRAYREF   => 2, # Ordered ArrayRef : [ name, value, name2, value2 ... ]
+    FORMAT_MULTIVALUE => 3, # Hash::MultiValue, this option is PP only
+};
+
 our %EXPORT_TAGS = (
     'all' => [ qw/parse_http_response/ ],
 );
@@ -14,8 +22,10 @@ our @EXPORT = ();
 
 our $HEADER_CLASS   = 'HTTP::Headers';
 our $RESPONSE_CLASS = 'HTTP::Response';
+our $HEADER_RAW_FORMAT = FORMAT_HASHREF;
 
 our $BACKEND;
+
 if (not exists $INC{"HTTP/Response/Parser/PP.pm"}) {
     $BACKEND = $ENV{PERL_HTTP_RESPONSE_PARSER} || ($ENV{PERL_ONLY} ? 'pp' : '');
     if ($BACKEND !~ /\b pp \b/xms) {
@@ -36,6 +46,7 @@ sub new {
     my %args  = @_ == 1 ? %{$_[0]} : @_;
     $args{header_class}   ||= $HEADER_CLASS;
     $args{response_class} ||= $RESPONSE_CLASS;
+    $args{header_raw_format} ||= $HEADER_RAW_FORMAT;
     return bless \%args, $class;
 }
 
@@ -52,11 +63,14 @@ HTTP::Response::Parser - create HTTP::Response object fast way
 
 =head1 SYNOPSIS
 
-  use HTTP::Response::Parser qw(parse parse_http_response);
+  use HTTP::Response::Parser qw(parse_http_response);
   
-  $res = HTTP::Response::Parser::parse("HTTP/1.1 200 OK\r\n\r\n", "Content body");
+  $parser = HTTP::Response::Parser->new;
+  
+  $res = $parser->parse("HTTP/1.1 200 OK\r\n\r\n", "Content body");
    or
-  $res = HTTP::Response::Parser::parse("HTTP/1.1 200 OK\r\n\r\nContent Body");
+  $res = $parser->parse("HTTP/1.1 200 OK\r\n\r\nContent Body");
+
   if ($res) {
       $res->isa('HTTP::Response'); # true
       $res->{_headers}->isa('HTTP::Headers'); # true
@@ -92,19 +106,25 @@ If you want incremental parser, you can use L<HTTP::Parser>. And see also L<HTTP
 
 This module is using picohttpparser(http://github.com/kazuho/picohttpparser) by kazuho oku.
 
+=head1 METHODS
+
 =head1 GLOBAL VARIABLES
 
 =over 4
 
+=item $HTTP::Response::Parser::BACKEND
+
+xs or pp
+
 =item $HTTP::Response::Parser::RESPONSE_CLASS
 
-The class of response object. (Default is 'HTTP::Response')
+The default class of response object. (Default is 'HTTP::Response')
 
 If set empty string then parse() function return a HASH that not blessed.
 
 =item $HTTP::Response::Parser::HEADER_CLASS
 
-The class of $res->{_headers}. (Default is 'HTTP::Headers')
+The default class of $res->{_headers}. (Default is 'HTTP::Headers')
 
 =head1 BENCHMARK
 
@@ -123,7 +143,7 @@ Compare with HTTP::Response->parse.
 
 =head1 EXPORTS
 
-Nothing by default. You can import "parse", "parse_http_response", and ":all".
+Nothing by default. You can import "parse_http_response", and ":constants".
 
 =head1 AUTHOR
 
