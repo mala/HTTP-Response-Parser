@@ -95,11 +95,12 @@ int do_parse( aTHX_
             }
             av_push((AV*)SvRV(sv), SvREFCNT_inc_simple_NN(valuesv));
         }
+        last_values[0] = valuesv;
       } else if (header_format == FORMAT_ARRAYREF) {
             av_push((AV*)*res_headers, SvREFCNT_inc_simple_NN(namesv));
             av_push((AV*)*res_headers, SvREFCNT_inc_simple_NN(valuesv));
+            last_values[0] = valuesv;
       }
-      last_values[0] = valuesv;
     } else {
       /* continuing lines of a mulitiline header */
       int j;
