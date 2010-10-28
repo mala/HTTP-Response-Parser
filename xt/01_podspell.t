@@ -8,3 +8,10 @@ __DATA__
 mala
 cpan@ma.la
 HTTP::Response::Parser
+RPC
+XS
+kazuho
+oku
+pp
+tokuhirom
+xs
