@@ -28,6 +28,16 @@ SV* my_new_name(pTHX_ const char* const pv, STRLEN const len) {
     return sv;
 }
 
+STATIC_INLINE
+void hpr_concat_multiline_header(pTHX_ SV * val, const char * const cont, size_t const cont_len) {
+    if (!val) {
+        return;
+    }
+
+    sv_catpvs(val, "\n"); /* XXX: is it collect? */
+    sv_catpvn(val, cont, cont_len);
+}
+
 static
 int do_parse( aTHX_
         /* input: */
@@ -46,8 +56,8 @@ int do_parse( aTHX_
   size_t last_len = 0;
   int const ret             = phr_parse_response(buf_str, buf_len,
     minor_version, status, msg, msg_len, headers, &num_headers, last_len);
-  SV* last_values[] = { NULL, NULL };
-  int const last_values_len = special_headers ? 2 : 1;
+  SV* last_special_headers_value_sv = NULL;
+  SV* last_element_value_sv         = NULL;
   size_t i;
 
   if (header_format == FORMAT_HASHREF) {
@@ -68,12 +78,12 @@ int do_parse( aTHX_
       if(special_headers) {
           HE* const slot = hv_fetch_ent(special_headers, namesv, FALSE, 0U);
           if (slot) {
-            SV* const placeholder = hv_iterval(special_headers, slot);
-            SvSetMagicSV_nosteal(placeholder, valuesv);
-            last_values[1] = placeholder;
+            SV* const hash_value = hv_iterval(special_headers, slot);
+            SvSetMagicSV_nosteal(hash_value, valuesv);
+            last_special_headers_value_sv = hash_value;
           }
           else {
-            last_values[1] = NULL;
+            last_special_headers_value_sv = NULL;
           }
       }
 
@@ -95,20 +105,19 @@ int do_parse( aTHX_
             }
             av_push((AV*)SvRV(sv), SvREFCNT_inc_simple_NN(valuesv));
         }
-        last_values[0] = valuesv;
+        last_element_value_sv = valuesv;
       } else if (header_format == FORMAT_ARRAYREF) {
             av_push((AV*)*res_headers, SvREFCNT_inc_simple_NN(namesv));
             av_push((AV*)*res_headers, SvREFCNT_inc_simple_NN(valuesv));
-            last_values[0] = valuesv;
+            last_element_value_sv = valuesv;
       }
     } else {
       /* continuing lines of a mulitiline header */
-      int j;
-      for(j = 0; j < last_values_len; j++) {
-          if(!last_values[j]) continue;
-
-          sv_catpvs(last_values[j], "\n"); /* XXX: is it correct? */
-          sv_catpvn(last_values[j], headers[i].value, headers[i].value_len);
+      if (special_headers) {
+        hpr_concat_multiline_header(last_special_headers_value_sv, headers[i].value, headers[i].value_len);
+      }
+      if (header_format == FORMAT_HASHREF || header_format == FORMAT_ARRAYREF) {
+        hpr_concat_multiline_header(last_element_value_sv, headers[i].value, headers[i].value_len);
       }
     }
   }
