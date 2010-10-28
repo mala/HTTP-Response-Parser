@@ -126,6 +126,8 @@ If set empty string then parse() function return a HASH that not blessed.
 
 The default class of $res->{_headers}. (Default is 'HTTP::Headers')
 
+=back
+
 =head1 BENCHMARK
 
 Compare with HTTP::Response->parse.
