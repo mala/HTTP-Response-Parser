@@ -1,5 +1,9 @@
 Revision history for Perl extension HTTP::Response::Parser
 
+0.04    Fri Sep 04 14:12:00 2015
+        - update picohttpparser
+        - update bundled Module::Install::XSUtils
+
 0.03    Tue Oct 12 21:18:24 2010
         - update picohttpparser (by tokuhirom)
 

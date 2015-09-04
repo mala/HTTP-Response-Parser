@@ -1,5 +1,5 @@
 use inc::Module::Install;
-use Module::Install::XSUtil;
+use Module::Install::XSUtil 0.45;
 name 'HTTP-Response-Parser';
 all_from 'lib/HTTP/Response/Parser.pm';
 
